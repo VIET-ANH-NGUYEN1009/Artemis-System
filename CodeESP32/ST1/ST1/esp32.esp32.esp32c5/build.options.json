@@ -1,0 +1,10 @@
+{
+  "additionalFiles": "",
+  "builtInLibrariesFolders": "D:\\Users\\common-tim\\AppData\\Local\\Arduino15\\libraries",
+  "compiler.optimization_flags": "-Os",
+  "customBuildProperties": "",
+  "fqbn": "esp32:esp32:esp32c5:UploadSpeed=921600,CDCOnBoot=default,CPUFreq=240,FlashFreq=80,FlashMode=qio,FlashSize=4M,PartitionScheme=default,DebugLevel=none,PSRAM=disabled,EraseFlash=none,JTAGAdapter=default,ZigbeeMode=default",
+  "hardwareFolders": "D:\\Users\\common-tim\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.10,D:\\Users\\common-tim\\AppData\\Local\\Arduino15\\packages\\esp32\\hardware\\esp32\\3.3.10",
+  "otherLibrariesFolders": "d:\\Users\\common-tim\\Documents\\Arduino\\libraries",
+  "sketchLocation": "D:\\Users\\common-tim\\Downloads\\ok1"
+}
