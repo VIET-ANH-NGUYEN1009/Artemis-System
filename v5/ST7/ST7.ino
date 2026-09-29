@@ -13,7 +13,7 @@ M5UnitQRCodeUART qrcode;
 
 
 // =====================================================
-// ST4 SOFTAP
+// ST7 SOFTAP
 // =====================================================
 
 const char *AP_SSID =
@@ -24,10 +24,10 @@ const char *AP_PASSWORD =
 
 
 // =====================================================
-// ST4 TCP SERVER
+// ST7 TCP SERVER
 // =====================================================
 
-IPAddress ST4_IP(
+IPAddress ST7_IP(
     192,
     168,
     4,
@@ -41,7 +41,7 @@ WiFiClient tcpClient;
 
 
 // =====================================================
-// TCP PACKET STRUCT (ĐỒNG BỘ VỚI ST4)
+// TCP PACKET STRUCT (ĐỒNG BỘ VỚI ST7)
 // =====================================================
 
 typedef struct {
@@ -62,7 +62,7 @@ typedef struct {
 // =====================================================
 
 const String station =
-    "ST6_";
+    "ST7_";
 
 
 // =====================================================
@@ -103,7 +103,7 @@ bool connectWiFi()
 {
     Serial.println();
     Serial.println(
-        "Connecting to ST4 SoftAP..."
+        "Connecting to ST7 SoftAP..."
     );
 
     Serial.print(
@@ -166,7 +166,7 @@ bool connectWiFi()
     // =================================================
 
     Serial.print(
-        "ST6 IP: "
+        "ST7 IP: "
     );
 
     Serial.println(
@@ -229,7 +229,7 @@ bool connectTCP()
 
     if (
         tcpClient.connect(
-            ST4_IP,
+            ST7_IP,
             TCP_PORT
         )
     )
@@ -261,82 +261,51 @@ bool connectTCP()
 // SEND QR BẰNG STRUCT TCP_PACKET
 // =====================================================
 
-bool sendQRToST4(
-    String qrCode
-)
+bool sendQRToST7(const String& qrCode)
 {
-    // =================================================
-    // TCP CHECK
-    // =================================================
-
-    if (
-        !tcpClient.connected()
-    )
+    if (!tcpClient.connected())
     {
-        if (
-            !connectTCP()
-        )
+        if (!connectTCP())
         {
             return false;
         }
     }
 
-
-    // =================================================
-    // ĐÓNG GÓI DỮ LIỆU ĐÚNG CHUẨN ST4 ĐANG ĐỌC
-    // =================================================
-
     TCP_Packet packet;
-    
-    packet.line_id = 1;        // Khớp với MY_LINE_ID = 1 của ST4
-    packet.station_id = 6;     // Khai báo trạm số 6
-    packet.packet_id = millis(); // Random/Bộ đếm để phân biệt các gói
-    
-    // Xóa bộ nhớ mảng và copy chuỗi QR
-    memset(packet.qr, 0, sizeof(packet.qr));
-    strncpy(packet.qr, qrCode.c_str(), sizeof(packet.qr) - 1);
 
+    memset(&packet, 0, sizeof(packet));
 
-    // =================================================
-    // GỬI CHUẨN BINARY CHO ST4
-    // =================================================
+    packet.line_id    = 1;
+    packet.station_id = 6;
+    packet.packet_id  = millis();
 
-    size_t sent = 
-        tcpClient.write(
-            (uint8_t*)&packet, 
-            sizeof(TCP_Packet)
-        );
-
-
-    // =================================================
-    // CHECK
-    // =================================================
-
-    if (
-        sent ==
-        sizeof(TCP_Packet)
-    )
-    {
-       
-        Serial.println(
-            qrCode
-        );
-
-
-        return true;
-    }
-
-
-    Serial.println(
-        "QR SEND FAIL"
+    snprintf(
+        packet.qr,
+        sizeof(packet.qr),
+        "%s",
+        qrCode.c_str()
     );
 
+    size_t sent = tcpClient.write(
+        (const uint8_t*)&packet,
+        sizeof(packet)
+    );
 
-    tcpClient.stop();
+    tcpClient.flush();
 
+    if (sent != sizeof(packet))
+    {
+        Serial.println("TCP SEND FAIL");
+        tcpClient.stop();
+        return false;
+    }
 
-    return false;
+    Serial.print("SEND: ");
+    Serial.println(packet.qr);
+
+    return true;
 }
+
 
 
 // =====================================================
@@ -362,7 +331,7 @@ void setup()
         "================================"
     );
     Serial.println(
-        " ST6 - SOFTAP 5GHz + TCP"
+        " ST7 - SOFTAP 5GHz + TCP"
     );
     Serial.println(
         "================================"
@@ -484,7 +453,7 @@ void setup()
 
 
     // =================================================
-    // CONNECT ST4 SOFTAP
+    // CONNECT ST7 SOFTAP
     // =================================================
 
     if (
@@ -576,7 +545,7 @@ void setup()
     );
 
     Serial.println(
-        "ST6 READY"
+        "ST7 READY"
     );
 
     Serial.println(
@@ -662,131 +631,127 @@ void loop()
     // QR SCANNER
     // =================================================
 
-    if (
-        qrcode.available()
-    )
+    if (qrcode.available())
+{
+    String qrCode = qrcode.getDecodeData();
+    qrCode.trim();
+
+    if (qrCode.length() > 0)
     {
-        String qrPart =
-            qrcode.getDecodeData();
+        if (qrCode != lastProcessedCode)
+        {
+            lastProcessedCode = qrCode;
+            lastSeenTime = currentTime;
 
+            String fullCode = station + qrCode;
 
-        bufferData +=
-            qrPart;
-
-
-        lastDataReceivedTime =
-            currentTime;
-
-
-        lastSeenTime =
-            currentTime;
+            sendQRToST7(fullCode);
+        }
     }
+}
 
 
     // =================================================
     // QR GATHER
     // =================================================
 
-    if (
-        bufferData != "" &&
-        (
-            currentTime -
-            lastDataReceivedTime
-        ) >= GATHER_TIMEOUT
-    )
-    {
-        // =================================================
-        // CHỐNG QR TRÙNG
-        // =================================================
+    // if (
+    //     bufferData != "" &&
+    //     (
+    //         currentTime -
+    //         lastDataReceivedTime
+    //     ) >= GATHER_TIMEOUT
+    // )
+    // {
+    //     // =================================================
+    //     // CHỐNG QR TRÙNG
+    //     // =================================================
 
-        if (
-            bufferData !=
-            lastProcessedCode
-        )
-        {
-            lastProcessedCode =
-                bufferData;
-
-
-            // =================================================
-            // TẠO QR
-            // =================================================
-
-            String fullCode =
-                station +
-                bufferData;
+    //     if (
+    //         bufferData !=
+    //         lastProcessedCode
+    //     )
+    //     {
+    //         lastProcessedCode =
+    //             bufferData;
 
 
-            // =================================================
-            // GỬI DATA QUA TCP CHO ST4
-            // =================================================
+    //         // =================================================
+    //         // TẠO QR
+    //         // =================================================
 
-            bool sent =
-                sendQRToST4(
-                    fullCode
-                );
+    //         String fullCode =
+    // station +
+    // bufferData +
+    // "\r\n";
 
+    //         // =================================================
+    //         // GỬI DATA QUA TCP CHO ST7
+    //         // =================================================
 
-            // =================================================
-            // LED
-            // =================================================
-
-            if (
-                sent
-            )
-            {
-                // XANH = GỬI OK
-
-                rgbLedWrite(
-                    RGB_LED_PIN,
-                    0,
-                    RGB_BRIGHTNESS,
-                    0
-                );
+    //         bool sent =
+    //             sendQRToST7(
+    //                 fullCode
+    //             );
 
 
-                delay(1000);
+            
+    //         if (
+    //             sent
+    //         )
+    //         {
+    //             // XANH = GỬI OK
+
+    //             rgbLedWrite(
+    //                 RGB_LED_PIN,
+    //                 0,
+    //                 RGB_BRIGHTNESS,
+    //                 0
+    //             );
 
 
-                rgbLedWrite(
-                    RGB_LED_PIN,
-                    0,
-                    0,
-                    0
-                );
-            }
-            else
-            {
-                // ĐỎ = GỬI FAIL
-
-                rgbLedWrite(
-                    RGB_LED_PIN,
-                    RGB_BRIGHTNESS,
-                    0,
-                    0
-                );
+    //             delay(1000);
 
 
-                delay(1000);
+    //             rgbLedWrite(
+    //                 RGB_LED_PIN,
+    //                 0,
+    //                 0,
+    //                 0
+    //             );
+    //         }
+    //         else
+    //         {
+    //             // ĐỎ = GỬI FAIL
+
+    //             rgbLedWrite(
+    //                 RGB_LED_PIN,
+    //                 RGB_BRIGHTNESS,
+    //                 0,
+    //                 0
+    //             );
 
 
-                rgbLedWrite(
-                    RGB_LED_PIN,
-                    0,
-                    0,
-                    0
-                );
-            }
-        }
+    //             delay(1000);
 
 
-        // =================================================
-        // CLEAR BUFFER
-        // =================================================
+    //             rgbLedWrite(
+    //                 RGB_LED_PIN,
+    //                 0,
+    //                 0,
+    //                 0
+    //             );
+    //         }
+    //     }
 
-        bufferData =
-            "";
-    }
+
+    //     // =================================================
+    //     // CLEAR BUFFER
+    //     // =================================================
+
+    //     bufferData =
+    //         "";
+    // }
 
 
     // =================================================
@@ -806,5 +771,5 @@ void loop()
     }
 
 
-    delay(10);
+    delay(50);
 }
